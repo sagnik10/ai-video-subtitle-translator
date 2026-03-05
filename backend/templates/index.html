@@ -1,0 +1,230 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Video Translator</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+body{background:linear-gradient(-45deg,#0f172a,#1e293b,#020617,#1e293b);background-size:400% 400%;animation:bg 15s ease infinite;color:white}
+@keyframes bg{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.glass{background:rgba(255,255,255,0.08);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15)}
+.progress{transition:width .5s}
+body{font-family:system-ui,Segoe UI,Arial,sans-serif}
+</style>
+
+</head>
+
+<body class="min-h-screen">
+
+<header class="glass p-5 shadow">
+<div class="max-w-6xl mx-auto flex justify-between">
+<h1 class="text-2xl font-bold">AI Video Translator</h1>
+<span class="opacity-70">Whisper + AI Translation Engine</span>
+</div>
+</header>
+
+
+<div class="max-w-5xl mx-auto mt-12 glass p-10 rounded-xl">
+
+<h2 class="text-xl mb-6">Upload & Translate Video</h2>
+
+<form id="uploadForm" class="space-y-6">
+
+<div id="uploadBox"
+class="border-2 border-dashed border-blue-400 rounded-xl p-10 text-center cursor-pointer hover:border-blue-500 transition">
+
+<p class="text-lg font-semibold">Drop Video Here</p>
+<p class="text-sm opacity-70">or click to browse</p>
+
+<input type="file" id="videoInput" name="file" accept="video/*" class="hidden">
+
+</div>
+
+
+<div class="flex items-center gap-4">
+
+<label class="text-sm opacity-80">Target Language</label>
+
+<select id="languageSelect" name="language"
+class="bg-slate-900 border border-blue-400 text-white px-4 py-2 rounded-lg">
+
+<option value="he">Hebrew</option>
+
+</select>
+
+</div>
+
+
+<button
+class="relative overflow-hidden px-8 py-3 rounded-xl font-semibold
+bg-gradient-to-r from-blue-500 to-purple-600
+hover:scale-105 transition transform duration-200
+shadow-lg shadow-blue-500/30">
+
+Start AI Translation
+
+</button>
+
+</form>
+
+
+
+<div class="mt-10">
+<video id="preview" controls class="w-full rounded hidden"></video>
+</div>
+
+
+
+<div id="processing" class="hidden mt-10">
+
+<p id="stageText">AI Processing...</p>
+
+<div class="w-full bg-gray-700 h-3 rounded mt-2">
+<div id="progressBar" class="progress bg-blue-500 h-3 w-0 rounded"></div>
+</div>
+
+</div>
+
+
+
+<div class="mt-10">
+
+<h3 class="text-lg mb-2">Live Transcription</h3>
+
+<pre id="transcription"
+dir="auto"
+class="bg-black p-4 rounded h-48 overflow-auto"></pre>
+
+</div>
+
+
+
+<div class="mt-10">
+
+<a id="downloadBtn"
+class="hidden bg-green-600 px-6 py-3 rounded">
+
+Download Translated Video
+
+</a>
+
+</div>
+
+</div>
+
+
+
+<script>
+
+const uploadBox=document.getElementById("uploadBox")
+const videoInput=document.getElementById("videoInput")
+const preview=document.getElementById("preview")
+
+const form=document.getElementById("uploadForm")
+
+const processing=document.getElementById("processing")
+const progressBar=document.getElementById("progressBar")
+const stageText=document.getElementById("stageText")
+
+const transcription=document.getElementById("transcription")
+const downloadBtn=document.getElementById("downloadBtn")
+
+let jobId=null
+
+
+
+uploadBox.onclick=()=>videoInput.click()
+
+
+
+uploadBox.addEventListener("dragover",e=>{
+e.preventDefault()
+uploadBox.classList.add("scale-105")
+})
+
+
+uploadBox.addEventListener("dragleave",()=>{
+uploadBox.classList.remove("scale-105")
+})
+
+
+uploadBox.addEventListener("drop",e=>{
+e.preventDefault()
+videoInput.files=e.dataTransfer.files
+})
+
+
+
+videoInput.onchange=e=>{
+const file=e.target.files[0]
+preview.src=URL.createObjectURL(file)
+preview.classList.remove("hidden")
+}
+
+
+
+form.addEventListener("submit",async e=>{
+
+e.preventDefault()
+
+processing.classList.remove("hidden")
+
+let data=new FormData()
+
+data.append("file",videoInput.files[0])
+data.append("language",document.getElementById("languageSelect").value)
+
+const response=await fetch("/api/upload/",{
+method:"POST",
+body:data
+})
+
+const result=await response.json()
+
+jobId=result.job_id
+
+trackProgress()
+
+})
+
+
+
+async function trackProgress(){
+
+const interval=setInterval(async()=>{
+
+const res=await fetch(`/api/status/${jobId}/`)
+const data=await res.json()
+
+progressBar.style.width=data.progress+"%"
+
+stageText.innerText="Stage: "+data.stage
+
+
+if(data.transcription){
+transcription.textContent=data.transcription
+}
+
+
+if(data.status==="completed"){
+
+clearInterval(interval)
+
+downloadBtn.href=data.video_url
+downloadBtn.classList.remove("hidden")
+
+preview.src=data.video_url
+preview.classList.remove("hidden")
+
+}
+
+},1500)
+
+}
+
+</script>
+
+</body>
+</html>
